@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ระบบใส่ลายน้ำมืออาชีพ (Batch Watermark Pro)</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Prompt:wght@400;600&family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Prompt', sans-serif; -webkit-tap-highlight-color: transparent; }
+        
+        .select2-container .select2-selection--single {
+            height: 46px !important;
+            border-color: #e5e7eb !important;
+            border-radius: 0.5rem !important;
+            display: flex;
+            align-items: center;
+            font-family: 'Prompt', sans-serif;
+            font-size: 0.95rem;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 44px !important;
+        }
+        
+        .loading-overlay { display: none; }
+        .is-loading .loading-overlay { display: flex; }
+        
+        .preview-img-container:hover .zoom-icon { opacity: 1 !important; }
+        
+        @media (min-width: 768px) {
+            ::-webkit-scrollbar { width: 6px; height: 6px; }
+            ::-webkit-scrollbar-track { background: #f8fafc; }
+            ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+            ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        }
+        
+        .hidden-mode { display: none; }
+        .modal-active { display: flex !important; }
+
+        @keyframes slideInUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .toast-animate { animation: slideInUp 0.3s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-3 md:p-6 text-slate-800 relative">
+
+    <div class="absolute top-4 right-4 md:top-6 md:right-6 flex bg-slate-200/60 backdrop-blur-sm p-1 rounded-lg border border-slate-200 z-40">
+        <button id="lang-th" class="lang-btn px-3 py-1.5 text-xs font-bold rounded-md bg-white shadow-sm text-blue-600 transition-all outline-none">TH</button>
+        <button id="lang-en" class="lang-btn px-3 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all outline-none">EN</button>
+    </div>
+
+    <div class="max-w-7xl mx-auto pt-10 md:pt-0">
+        <header class="text-center mb-5 md:mb-8 mt-2 relative">
+            <h1 class="text-2xl md:text-3xl font-bold text-slate-900 mb-1" data-i18n="app_title">Batch Watermark</h1>
+            <p class="text-slate-500 text-xs md:text-sm" data-i18n="app_desc">ใส่ลายน้ำข้อความหรือโลโก้ พร้อมกันหลายภาพอย่างมืออาชีพ</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-6">
+            
+            <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 md:col-span-5 lg:col-span-4 h-fit md:sticky top-6 custom-scrollbar overflow-y-auto md:max-h-[90vh]">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                    <h2 class="text-lg font-bold text-slate-800" data-i18n="setting_title">ตั้งค่าลายน้ำ</h2>
+                    <div class="flex items-center gap-2">
+                        <button id="resetBtn" class="text-[11px] bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 px-2.5 py-1.5 rounded-md font-bold transition-colors flex items-center gap-1 outline-none">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            <span data-i18n="btn_reset">เริ่มใหม่</span>
+                        </button>
+                        <span class="text-[10px] bg-emerald-100 text-emerald-700 px-2.5 py-1.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> <span data-i18n="live_preview">Live</span>
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="space-y-5">
+                    <div class="space-y-1.5">
+                        <label class="block text-sm font-semibold text-slate-700" data-i18n="step1_title">1. เลือกรูปภาพต้นฉบับ</label>
+                        <div id="dropZone" class="relative border-2 border-dashed border-blue-200 bg-blue-50/50 hover:bg-blue-50 rounded-xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center group">
+                            <svg class="w-8 h-8 text-blue-400 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            <p class="text-sm text-slate-700 font-semibold" id="dropzoneMainText" data-i18n="dropzone_main">คลิก หรือ ลากไฟล์รูปมาวางที่นี่</p>
+                            <p class="text-[10px] text-slate-500 mt-1" data-i18n="dropzone_sub">รองรับ JPG, PNG, WEBP (เลือกได้หลายไฟล์)</p>
+                            <input type="file" id="imageInput" multiple accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer outline-none">
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-slate-700" data-i18n="step2_title">2. ประเภทลายน้ำ</label>
+                        <div class="flex p-1 bg-slate-100 rounded-lg">
+                            <button id="btnModeText" class="mode-btn flex-1 py-2 text-sm font-bold rounded-md bg-white shadow-sm text-blue-600 transition-all outline-none" data-i18n="mode_text">ตัวหนังสือ</button>
+                            <button id="btnModeLogo" class="mode-btn flex-1 py-2 text-sm font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all outline-none" data-i18n="mode_logo">โลโก้รูปภาพ</button>
+                        </div>
+                        <input type="hidden" id="wmMode" value="text">
+                    </div>
+
+                    <div id="textSettings" class="space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-100 transition-all">
+                        <div class="space-y-1.5">
+                            <label class="block text-sm font-semibold text-slate-700" data-i18n="text_label">ข้อความลายน้ำ</label>
+                            <textarea id="watermarkText" rows="2" class="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 transition-all text-trigger text-[15px] outline-none" data-i18n-placeholder="text_placeholder" placeholder="พิมพ์ข้อความ..."></textarea>
+                        </div>
+                        
+                        <div class="space-y-1.5">
+                            <label class="block text-sm font-semibold text-slate-700" data-i18n="font_label">ฟอนต์ (Font)</label>
+                            <select id="fontFamily" class="w-full select2 select-trigger">
+                                <option value="Prompt" data-i18n="font_prompt" style="font-family: 'Prompt'">Prompt (ทันสมัย)</option>
+                                <option value="Kanit" data-i18n="font_kanit" style="font-family: 'Kanit'">Kanit (โดดเด่น)</option>
+                                <option value="Sarabun" data-i18n="font_sarabun" style="font-family: 'Sarabun'">Sarabun (ทางการ)</option>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="space-y-1.5">
+                                <label class="block text-sm font-semibold text-slate-700" data-i18n="font_size">ขนาดฟอนต์</label>
+                                <input type="number" id="fontSize" value="60" class="w-full border border-slate-200 rounded-lg p-3 text-[15px] text-trigger outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="block text-sm font-semibold text-slate-700" data-i18n="text_color">สีข้อความ</label>
+                                <input type="color" id="fontColor" value="#ffffff" class="w-full h-[48px] border border-slate-200 rounded-lg cursor-pointer p-0.5 slide-trigger outline-none">
+                            </div>
+                        </div>
+
+                        <div class="pt-3 border-t border-slate-200">
+                            <label class="flex items-center text-sm font-semibold text-slate-700 cursor-pointer mb-3">
+                                <input type="checkbox" id="addOutline" checked class="mr-2.5 w-5 h-5 text-blue-600 rounded select-trigger outline-none">
+                                <span data-i18n="add_outline">เพิ่มเส้นขอบข้อความ (Outline)</span>
+                            </label>
+                            <div id="outlineControls" class="grid grid-cols-2 gap-3 pl-7 opacity-100 transition-opacity">
+                                <div>
+                                    <label class="block text-xs text-slate-500 mb-1" data-i18n="outline_color">สีเส้นขอบ</label>
+                                    <input type="color" id="outlineColor" value="#000000" class="w-full h-10 border border-slate-200 rounded-md cursor-pointer p-0.5 slide-trigger outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-500 mb-1"><span data-i18n="outline_thick">ความหนา</span>: <span id="outlineVal" class="font-bold">3</span>px</label>
+                                    <input type="range" id="outlineWidth" min="1" max="15" step="1" value="3" class="w-full accent-blue-600 slide-trigger mt-1.5">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="logoSettings" class="space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-100 hidden-mode transition-all">
+                        <div class="space-y-1.5">
+                            <label class="block text-sm font-semibold text-slate-700" data-i18n="logo_upload_label">อัปโหลดโลโก้ <span class="text-xs text-slate-500 font-normal">(แนะนำ PNG โปร่งใส)</span></label>
+                            <input type="file" id="logoInput" multiple accept="image/png, image/jpeg, image/webp" class="w-full text-sm text-slate-500 file:mr-3 file:py-2.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer border border-slate-200 rounded-lg p-1.5 bg-white outline-none">
+                            
+                            <div id="logoPreviewZone" class="hidden mt-3 p-3 bg-white border border-slate-200 rounded-lg">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs text-indigo-600 font-bold" id="logoCountText">เลือกแล้ว 0 โลโก้</span>
+                                    <button id="clearLogoBtn" class="text-[10px] bg-red-50 text-red-600 hover:bg-red-100 px-2 py-1 rounded-md border border-red-100 font-bold transition-colors outline-none flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        <span data-i18n="btn_clear_logo">ล้างทั้งหมด</span>
+                                    </button>
+                                </div>
+                                <div id="logoPreviewList" class="flex flex-wrap gap-1 pb-1 pt-2"></div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-1.5 hidden pt-2 border-t border-slate-200" id="logoMultipleModeContainer">
+                            <label class="block text-xs font-semibold text-slate-700" data-i18n="logo_mode_label">โหมดแสดงโลโก้หลายรูป</label>
+                            <select id="logoMultipleMode" class="w-full select2 select-trigger">
+                                <option value="alternate" data-i18n="opt_alt">สลับโลโก้ตามภาพ (1 โลโก้ / 1 ภาพ)</option>
+                                <option value="combine" data-i18n="opt_comb">รวมเรียงต่อกัน (ทุกโลโก้รวมอยู่ใน 1 จุด)</option>
+                                <option value="mixed_tile" data-i18n="opt_mixed">สลับโลโก้ไปมาในภาพเดียว ⭐ (เฉพาะโหมดเต็มหน้า)</option>
+                            </select>
+                        </div>
+
+                        <div class="space-y-1.5 pt-2">
+                            <label class="block text-sm font-semibold text-slate-700 flex justify-between">
+                                <span data-i18n="logo_scale">ขนาดโลโก้</span>
+                                <span id="logoScaleVal" class="text-indigo-600 text-xs font-bold">20%</span>
+                            </label>
+                            <input type="range" id="logoScale" min="5" max="100" step="1" value="20" class="w-full accent-indigo-600 slide-trigger">
+                        </div>
+                    </div>
+
+                    <div class="space-y-5 pt-4 border-t border-slate-100">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1.5">
+                                <label class="block text-sm font-semibold text-slate-700" data-i18n="opacity_label">ความโปร่งใส</label>
+                                <input type="range" id="opacity" min="0.1" max="1" step="0.05" value="0.7" class="w-full mt-1.5 accent-blue-600 slide-trigger">
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="block text-sm font-semibold text-slate-700"><span data-i18n="rotation_label">องศาหมุน</span>: <span id="angleValue" class="text-blue-600 text-xs font-bold">-30°</span></label>
+                                <input type="range" id="rotationAngle" min="-90" max="90" step="1" value="-30" class="w-full mt-1.5 accent-blue-600 slide-trigger">
+                            </div>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="block text-sm font-semibold text-slate-700" data-i18n="position_label">ตำแหน่งการวาง</label>
+                            <select id="positionSelect" class="w-full select2 select-trigger">
+                                <option value="tile" data-i18n="pos_tile" selected>เต็มหน้า (กระจายทั่วภาพ)</option> 
+                                <option value="center" data-i18n="pos_center">ตรงกลาง (Center)</option>
+                                <option value="bottom-right" data-i18n="pos_br">ขวาล่าง (Bottom Right)</option>
+                                <option value="bottom-left" data-i18n="pos_bl">ซ้ายล่าง (Bottom Left)</option>
+                                <option value="top-right" data-i18n="pos_tr">ขวาบน (Top Right)</option>
+                                <option value="top-left" data-i18n="pos_tl">ซ้ายบน (Top Left)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="space-y-1.5" id="spacingContainer">
+                            <label class="block text-sm font-semibold text-slate-700" data-i18n="spacing_label">ระยะห่าง (สำหรับโหมดเต็มหน้า)</label>
+                            <input type="range" id="spacing" min="1.5" max="8" step="0.5" value="2.5" class="w-full accent-blue-600 slide-trigger">
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 pt-4 border-t border-slate-100">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="space-y-1.5">
+                                <label class="block text-xs font-semibold text-slate-700" data-i18n="format_label">รูปแบบส่งออก</label>
+                                <select id="formatSelect" class="w-full select2 select-trigger">
+                                    <option value="image/jpeg" selected>JPEG (.jpg)</option>
+                                    <option value="image/png">PNG (.png)</option>
+                                    <option value="image/webp">WEBP (.webp)</option>
+                                </select>
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="block text-xs font-semibold text-slate-700 flex justify-between">
+                                    <span data-i18n="quality_label">คุณภาพไฟล์</span>
+                                    <span id="qualityVal" class="text-blue-600 font-bold">90%</span>
+                                </label>
+                                <input type="range" id="imageQuality" min="0.1" max="1" step="0.1" value="0.9" class="w-full mt-2 accent-blue-600 slide-trigger">
+                                <p class="text-[9px] text-slate-400 mt-1 text-right" data-i18n="quality_hint">(ไม่มีผลกับ PNG)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 md:col-span-7 lg:col-span-8 relative min-h-[400px] md:min-h-[600px] flex flex-col" id="previewPanel">
+                
+                <div class="loading-overlay absolute inset-0 bg-white/80 z-10 items-center justify-center rounded-2xl backdrop-blur-sm transition-all">
+                    <div class="flex flex-col items-center space-y-3 bg-white p-6 rounded-2xl shadow-xl border border-slate-100">
+                        <svg class="animate-spin h-10 w-10 text-blue-600" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        <span class="text-sm font-bold text-slate-700 tracking-wide" data-i18n="loading_text">กำลังประมวลผล...</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center border-b border-slate-100 pb-4 mb-5 gap-4">
+                    <h2 class="text-lg md:text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <span data-i18n="preview_title">ผลลัพธ์ภาพ</span> 
+                        <span id="fileCount" class="text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">0 รูปภาพ</span>
+                    </h2>
+                    
+                    <div class="flex flex-col sm:flex-row gap-2 w-full xl:w-auto">
+                        <button id="downloadAllBtn" class="hidden w-full sm:w-auto flex-1 xl:flex-none flex flex-row justify-center items-center gap-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 font-semibold py-2.5 px-4 rounded-lg shadow-sm transition-all text-sm outline-none">
+                            <svg class="w-4 h-4 shrink-0 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            <span data-i18n="btn_dl_single">โหลดแยกทีละภาพ</span>
+                        </button>
+                        
+                        <button id="downloadZipBtn" class="hidden w-full sm:w-auto flex-1 xl:flex-none flex flex-row justify-center items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-5 rounded-lg shadow-md transition-all text-sm outline-none">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                            <span data-i18n="btn_dl_zip">ดาวน์โหลดทั้งหมด (.ZIP)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="previewWarning" class="hidden bg-amber-50 border border-amber-200 text-amber-700 text-xs md:text-sm px-4 py-3 rounded-lg mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    <span data-i18n="warn_logo">กำลังแสดงภาพต้นฉบับ (กรุณาอัปโหลดไฟล์โลโก้เพื่อแสดงลายน้ำ)</span>
+                </div>
+                
+                <div id="previewContainer" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5 content-start flex-grow">
+                    <div class="col-span-full flex flex-col items-center justify-center py-20 md:py-32 text-slate-400" id="emptyState">
+                        <svg class="w-14 h-14 md:w-16 md:h-16 mb-4 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <p class="font-medium text-slate-500 text-sm md:text-base" data-i18n="empty_state_title">ยังไม่ได้ตั้งค่าการทำงาน</p>
+                        <p class="text-[10px] md:text-xs mt-1" data-i18n="empty_state_desc">อัปโหลดรูปและตั้งค่าเพื่อดูตัวอย่าง</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="imageModal" class="fixed inset-0 z-50 hidden bg-slate-900/95 flex flex-col items-center justify-center backdrop-blur-sm transition-opacity overflow-hidden">
+        <button id="closeModal" class="absolute top-4 right-4 md:top-6 md:right-6 text-white bg-white/10 hover:bg-white/20 rounded-full w-10 h-10 md:w-12 md:h-12 flex items-center justify-center focus:outline-none transition-colors z-20">
+            <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        
+        <div class="w-full h-full flex items-center justify-center p-4 overflow-auto" id="modalImageWrapper">
+            <img id="modalImage" src="" class="max-w-none max-h-[85vh] md:max-h-[90vh] object-contain rounded-lg shadow-2xl transition-transform duration-200 origin-center">
+        </div>
+
+        <div class="absolute bottom-6 md:bottom-10 flex items-center gap-1 bg-slate-800/80 backdrop-blur-md px-4 py-2.5 rounded-full shadow-lg border border-slate-700/50 z-20">
+            <button id="zoomOutBtn" data-i18n-title="zoom_out" class="text-white hover:text-blue-400 p-2 rounded-full hover:bg-slate-700 transition-colors outline-none" title="ซูมออก">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+            </button>
+            <span id="zoomLevel" class="text-slate-200 text-xs font-bold w-12 text-center select-none">100%</span>
+            <button id="zoomInBtn" data-i18n-title="zoom_in" class="text-white hover:text-blue-400 p-2 rounded-full hover:bg-slate-700 transition-colors outline-none" title="ซูมเข้า">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            </button>
+            <div class="w-px h-5 bg-slate-600 mx-2"></div>
+            <button id="zoomResetBtn" data-i18n-title="fit_screen" class="text-white hover:text-blue-400 p-2 rounded-full hover:bg-slate-700 transition-colors outline-none flex items-center gap-1" title="พอดีจอ">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                <span class="text-[10px] font-bold" data-i18n="fit_screen">พอดีจอ</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="confirmResetModal" class="fixed inset-0 z- hidden bg-slate-900/50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6 transform transition-all scale-100 border border-slate-100">
+            <div class="flex items-center justify-center w-16 h-16 rounded-full bg-red-50 mb-5 mx-auto">
+                <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            </div>
+            <h3 class="text-xl font-bold text-slate-800 text-center mb-2" data-i18n="reset_modal_title">ยืนยันการเริ่มใหม่</h3>
+            <p class="text-sm text-slate-500 text-center mb-8 leading-relaxed" data-i18n="reset_modal_desc">ต้องการล้างค่าการตั้งค่าและ <span class='font-bold text-red-500'>ลบรูปภาพ</span> ที่อัปโหลดไว้ทั้งหมดใช่หรือไม่?</p>
+            <div class="flex gap-3">
+                <button id="cancelResetBtn" class="flex-1 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 font-semibold py-3 px-4 rounded-xl transition-colors text-sm shadow-sm outline-none" data-i18n="btn_cancel">ยกเลิก</button>
+                <button id="confirmResetActionBtn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-colors text-sm outline-none" data-i18n="btn_confirm">ยืนยันล้างค่า</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer" class="fixed bottom-5 right-5 z- flex flex-col gap-3 pointer-events-none"></div>
+
+    <script>
+        // ================= Language Data =================
+        const i18n = {
+            th: {
+                app_title: "Batch Watermark",
+                app_desc: "ใส่ลายน้ำข้อความหรือโลโก้ พร้อมกันหลายภาพอย่างมืออาชีพ",
+                setting_title: "ตั้งค่าลายน้ำ",
+                btn_reset: "เริ่มใหม่",
+                live_preview: "Live",
+                step1_title: "1. เลือกรูปภาพต้นฉบับ",
+                dropzone_main: "คลิก หรือ ลากไฟล์รูปมาวางที่นี่",
+                dropzone_sub: "รองรับ JPG, PNG, WEBP (เลือกได้หลายไฟล์)",
+                step2_title: "2. ประเภทลายน้ำ",
+                mode_text: "ตัวหนังสือ",
+                mode_logo: "โลโก้รูปภาพ",
+                text_label: "ข้อความลายน้ำ",
+                text_placeholder: "พิมพ์ข้อความ...",
+                font_label: "ฟอนต์ (Font)",
+                font_size: "ขนาดฟอนต์",
+                text_color: "สีข้อความ",
+                add_outline: "เพิ่มเส้นขอบข้อความ (Outline)",
+                outline_color: "สีเส้นขอบ",
+                outline_thick: "ความหนา",
+                logo_upload_label: "อัปโหลดโลโก้ <span class='text-xs text-slate-500 font-normal'>(แนะนำ PNG โปร่งใส)</span>",
+                btn_clear_logo: "ล้างทั้งหมด",
+                logo_mode_label: "โหมดแสดงโลโก้หลายรูป",
+                logo_scale: "ขนาดโลโก้",
+                opacity_label: "ความโปร่งใส",
+                rotation_label: "องศาหมุน",
+                position_label: "ตำแหน่งการวาง",
+                spacing_label: "ระยะห่าง (สำหรับโหมดเต็มหน้า)",
+                format_label: "รูปแบบส่งออก",
+                quality_label: "คุณภาพไฟล์",
+                quality_hint: "(ไม่มีผลกับ PNG)",
+                loading_text: "กำลังประมวลผล...",
+                preview_title: "ผลลัพธ์ภาพ",
+                btn_dl_single: "โหลดแยกทีละภาพ",
+                btn_dl_zip: "ดาวน์โหลดทั้งหมด (.ZIP)",
+                warn_logo: "กำลังแสดงภาพต้นฉบับ (กรุณาอัปโหลดไฟล์โลโก้เพื่อแสดงลายน้ำ)",
+                empty_state_title: "ยังไม่ได้ตั้งค่าการทำงาน",
+                empty_state_desc: "อัปโหลดรูปและตั้งค่าเพื่อดูตัวอย่าง",
+                reset_modal_title: "ยืนยันการเริ่มใหม่",
+                reset_modal_desc: "ต้องการล้างค่าการตั้งค่าและ <span class='font-bold text-red-500'>ลบรูปภาพ</span> ที่อัปโหลดไว้ทั้งหมดใช่หรือไม่?",
+                btn_cancel: "ยกเลิก",
+                btn_confirm: "ยืนยันล้างค่า",
+                font_prompt: "Prompt (ทันสมัย)",
+                font_kanit: "Kanit (โดดเด่น)",
+                font_sarabun: "Sarabun (ทางการ)",
+                opt_alt: "สลับโลโก้ตามภาพ (1 โลโก้ / 1 ภาพ)",
+                opt_comb: "รวมเรียงต่อกัน (ทุกโลโก้รวมอยู่ในภาพเดียว)",
+                opt_mixed: "สลับโลโก้ไปมาในภาพเดียว ⭐ (เฉพาะโหมดเต็มหน้า)",
+                pos_tile: "เต็มหน้า (กระจายทั่วภาพ)",
+                pos_center: "ตรงกลาง (Center)",
+                pos_br: "ขวาล่าง (Bottom Right)",
+                pos_bl: "ซ้ายล่าง (Bottom Left)",
+                pos_tr: "ขวาบน (Top Right)",
+                pos_tl: "ซ้ายบน (Top Left)",
+                toast_reset: "รีเซ็ตการตั้งค่าเรียบร้อยแล้ว",
+                toast_dl_started: "เริ่มดาวน์โหลดรูปภาพแล้ว",
+                toast_dl_single: "กำลังดาวน์โหลดแยกทีละรูป...",
+                toast_packing: "กำลังแพ็กไฟล์ .ZIP กรุณารอสักครู่",
+                toast_zip_success: "ดาวน์โหลดไฟล์ .ZIP สำเร็จ!",
+                err_no_img_title: "ยังไม่ได้เลือกรูปภาพต้นฉบับ",
+                err_no_img_desc: "กรุณาอัปโหลดรูปภาพต้นฉบับที่แถบตั้งค่า ข้อ 1",
+                err_no_logo_title: "ยังไม่ได้อัปโหลดรูปโลโก้ลายน้ำ",
+                err_no_logo_desc: "กรุณาอัปโหลดไฟล์โลโก้ (PNG) ก่อนระบบจึงจะทำงานได้",
+                text_images: "รูปภาพ",
+                text_logos: "โลโก้",
+                text_uploaded: "อัปโหลดแล้ว",
+                text_selected: "เลือกแล้ว",
+                btn_dl_this: "โหลดรูปนี้",
+                zoom_in: "ซูมเข้า",
+                zoom_out: "ซูมออก",
+                fit_screen: "พอดีจอ",
+                btn_remove_logo: "ลบโลโก้นี้"
+            },
+            en: {
+                app_title: "Batch Watermark",
+                app_desc: "Professionally add text or logo watermarks to multiple images",
+                setting_title: "Settings",
+                btn_reset: "Reset",
+                live_preview: "Live",
+                step1_title: "1. Source Images",
+                dropzone_main: "Click or drag & drop files here",
+                dropzone_sub: "Supports JPG, PNG, WEBP (Multiple files allowed)",
+                step2_title: "2. Watermark Type",
+                mode_text: "Text",
+                mode_logo: "Logo",
+                text_label: "Watermark Text",
+                text_placeholder: "Type watermark...",
+                font_label: "Font Family",
+                font_size: "Font Size",
+                text_color: "Text Color",
+                add_outline: "Add Text Outline",
+                outline_color: "Outline Color",
+                outline_thick: "Thickness",
+                logo_upload_label: "Upload Logos <span class='text-xs text-slate-500 font-normal'>(Transparent PNG recommended)</span>",
+                btn_clear_logo: "Clear All",
+                logo_mode_label: "Multiple Logos Mode",
+                logo_scale: "Logo Scale",
+                opacity_label: "Opacity",
+                rotation_label: "Rotation",
+                position_label: "Position",
+                spacing_label: "Spacing (for tiled mode)",
+                format_label: "Export Format",
+                quality_label: "Image Quality",
+                quality_hint: "(No effect on PNG)",
+                loading_text: "Processing...",
+                preview_title: "Preview Result",
+                btn_dl_single: "Download Singly",
+                btn_dl_zip: "Download All (.ZIP)",
+                warn_logo: "Showing original images (Please upload a logo file to see the watermark)",
+                empty_state_title: "No images yet",
+                empty_state_desc: "Upload images and configure settings to preview",
+                reset_modal_title: "Confirm Reset",
+                reset_modal_desc: "Are you sure you want to clear settings and <span class='font-bold text-red-500'>delete all</span> uploaded images?",
+                btn_cancel: "Cancel",
+                btn_confirm: "Confirm Reset",
+                font_prompt: "Prompt (Modern)",
+                font_kanit: "Kanit (Bold)",
+                font_sarabun: "Sarabun (Formal)",
+                opt_alt: "Alternate (1 Logo / 1 Image)",
+                opt_comb: "Combine (All logos grouped)",
+                opt_mixed: "Mixed Tile ⭐ (Tile mode only)",
+                pos_tile: "Tile (Spread across image)",
+                pos_center: "Center",
+                pos_br: "Bottom Right",
+                pos_bl: "Bottom Left",
+                pos_tr: "Top Right",
+                pos_tl: "Top Left",
+                toast_reset: "Settings have been reset.",
+                toast_dl_started: "Download started...",
+                toast_dl_single: "Downloading separately...",
+                toast_packing: "Packing .ZIP file...",
+                toast_zip_success: ".ZIP Download Successful!",
+                err_no_img_title: "No source images selected",
+                err_no_img_desc: "Please upload source images in Step 1.",
+                err_no_logo_title: "No logos uploaded",
+                err_no_logo_desc: "Please upload a logo file (PNG) to proceed.",
+                text_images: "images",
+                text_logos: "logos",
+                text_uploaded: "Uploaded",
+                text_selected: "Selected",
+                btn_dl_this: "Download",
+                zoom_in: "Zoom In",
+                zoom_out: "Zoom Out",
+                fit_screen: "Fit Screen",
+                btn_remove_logo: "Remove this logo"
+            }
+        };
+
+        let currentLang = localStorage.getItem('wm_lang') || 'th';
+        
+        function t(key) {
+            // ระบบ Fallback ตรวจสอบกรณีค่าใน Local Storage เพี้ยน
+            if (!i18n[currentLang]) {
+                currentLang = 'th';
+                localStorage.setItem('wm_lang', 'th');
+            }
+            return i18n[currentLang][key] || key;
+        }
+
+        // Function to safely reinitialize Select2
+        function reinitializeSelect2() {
+            $('.select2').each(function () {
+                const $this = $(this);
+                if ($this.data('select2') !== undefined) { // Check if Select2 is initialized
+                    try {
+                        $this.select2('destroy'); // Destroy existing instance
+                    } catch (e) {
+                        console.warn('Select2 destroy error:', e);
+                    }
+                }
+                $this.select2(); // Reinitialize
+            });
+        }
+
+        // Update language function with Select2 reinitialization
+        function changeLanguage(lang) {
+            $('[data-i18n]').each(function () {
+                const key = $(this).data('i18n');
+                if (translations[lang][key]) {
+                    $(this).text(translations[lang][key]);
+                }
+            });
+
+            $('[data-i18n-placeholder]').each(function () {
+                const key = $(this).data('i18n-placeholder');
+                if (translations[lang][key]) {
+                    $(this).attr('placeholder', translations[lang][key]);
+                }
+            });
+
+            reinitializeSelect2(); // Reinitialize Select2 after language change
+        }
+
+        $(document).ready(function() {
+            // ================= Core Initialization =================
+            $('.select2').select2({ minimumResultsForSearch: Infinity, width: '100%' });
+
+            let selectedFiles = [];
+            let logoImageObjs = []; 
+            let processedImagesData = []; 
+            let renderTimeout = null; 
+            let currentZoom = 1;
+
+            // ================= Language Switcher =================
+            function setLanguage(lang) {
+                // ป้องกัน Error หากดึงภาษาที่ไม่มีอยู่ระบบ (แก้ไขบั๊ก)
+                if (!i18n[lang]) {
+                    lang = 'th';
+                }
+
+                currentLang = lang;
+                localStorage.setItem('wm_lang', lang);
+
+                // Update UI Buttons
+                $('.lang-btn').removeClass('bg-white shadow-sm text-blue-600').addClass('text-slate-500 hover:text-slate-700');
+                $(`#lang-${lang}`).removeClass('text-slate-500 hover:text-slate-700').addClass('bg-white shadow-sm text-blue-600');
+
+                // Update text content
+                $('[data-i18n]').each(function() {
+                    const key = $(this).data('i18n');
+                    if (i18n[lang] && i18n[lang][key]) $(this).html(i18n[lang][key]);
+                });
+
+                // Update placeholders
+                $('[data-i18n-placeholder]').each(function() {
+                    const key = $(this).data('i18n-placeholder');
+                    if (i18n[lang] && i18n[lang][key]) $(this).attr('placeholder', i18n[lang][key]);
+                });
+
+                // Update titles
+                $('[data-i18n-title]').each(function() {
+                    const key = $(this).data('i18n-title');
+                    if (i18n[lang] && i18n[lang][key]) $(this).attr('title', i18n[lang][key]);
+                });
+
+                // Refresh Select2 to show translated options safely
+                $('.select2').each(function() {
+                    if ($(this).hasClass("select2-hidden-accessible")) {
+                        $(this).select2('destroy');
+                    }
+                });
+
+                // Reinitialize with your custom settings
+                $('.select2').select2({ minimumResultsForSearch: Infinity, width: '100%' });
+                updateDynamicTexts();
+                if(selectedFiles.length > 0) triggerRender(false);
+            }
+
+            $('.lang-btn').on('click', function() {
+                // Correctly extract the language code ('th' or 'en')
+                const lang = $(this).attr('id').split('-')[1]; 
+                setLanguage(lang); // Pass the language code as a string
+            });
+
+            // Initialize Language on load
+            setLanguage(currentLang);
+
+            function updateDynamicTexts() {
+                if(selectedFiles.length > 0) {
+                    $('#dropzoneMainText').text(`${t('text_selected')} ${selectedFiles.length} ${t('text_images')}`);
+                } else {
+                    $('#dropzoneMainText').text(t('dropzone_main'));
+                }
+                $('#logoCountText').text(`${t('text_uploaded')} ${logoImageObjs.length} ${t('text_logos')}`);
+                $('#fileCount').text(`${selectedFiles.length} ${t('text_images')}`);
+            }
+
+            // ================= General UI & Controls =================
+            function showToast(message, type = 'success') {
+                const colors = type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-blue-50 text-blue-800 border-blue-200';
+                const icon = type === 'success' 
+                    ? `<svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`
+                    : `<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+                
+                const toast = $(`
+                    <div class="flex items-center gap-3 ${colors} border px-4 py-3 rounded-xl shadow-lg toast-animate pointer-events-auto">
+                        ${icon}
+                        <span class="text-sm font-semibold">${message}</span>
+                    </div>
+                `);
+                
+                $('#toastContainer').append(toast);
+                setTimeout(() => {
+                    toast.css('opacity', '0');
+                    toast.css('transition', 'opacity 0.3s ease');
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+
+            $('#rotationAngle').on('input', function() { $('#angleValue').text($(this).val() + '°'); });
+            $('#outlineWidth').on('input', function() { $('#outlineVal').text($(this).val()); });
+            $('#logoScale').on('input', function() { $('#logoScaleVal').text($(this).val() + '%'); });
+            $('#imageQuality').on('input', function() { $('#qualityVal').text(Math.round($(this).val() * 100) + '%'); });
+            
+            $('#resetBtn').on('click', function() { $('#confirmResetModal').removeClass('hidden').addClass('modal-active'); });
+            $('#cancelResetBtn').on('click', function() { $('#confirmResetModal').addClass('hidden').removeClass('modal-active'); });
+
+            $('#confirmResetActionBtn').on('click', function() {
+                $('#confirmResetModal').addClass('hidden').removeClass('modal-active');
+                selectedFiles = [];
+                logoImageObjs = [];
+                $('#imageInput').val('');
+                $('#logoInput').val('');
+                $('#watermarkText').val('');
+                
+                updateDynamicTexts();
+                
+                $('#previewWarning').addClass('hidden');
+                $('#logoPreviewZone').addClass('hidden');
+                $('#logoMultipleModeContainer').addClass('hidden');
+                triggerRender(false);
+                showToast(t('toast_reset'), 'info');
+            });
+
+            function renderLogoPreviews() {
+                const previewList = $('#logoPreviewList');
+                previewList.empty();
+                
+                if(logoImageObjs.length === 0) {
+                    $('#logoPreviewZone').addClass('hidden');
+                    $('#logoMultipleModeContainer').addClass('hidden');
+                    $('#logoInput').val(''); 
+                    return;
+                }
+
+                $('#logoPreviewZone').removeClass('hidden');
+                updateDynamicTexts();
+                
+                if(logoImageObjs.length > 1) $('#logoMultipleModeContainer').removeClass('hidden');
+                else $('#logoMultipleModeContainer').addClass('hidden');
+
+                logoImageObjs.forEach((imgObj, index) => {
+                    const itemHtml = `
+                        <div class="relative shrink-0 mt-1.5 mr-1.5 group">
+                            <img src="${imgObj.src}" class="h-12 w-12 object-contain bg-slate-100 rounded-lg border border-slate-200 p-1 shadow-sm">
+                            <button type="button" class="remove-logo-btn absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 shadow-md hover:bg-red-600 outline-none transition-transform hover:scale-110" data-index="${index}" title="${t('btn_remove_logo')}">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+                    `;
+                    previewList.append(itemHtml);
+                });
+            }
+
+            $(document).on('click', '.remove-logo-btn', function() {
+                const index = $(this).data('index');
+                logoImageObjs.splice(index, 1); 
+                renderLogoPreviews();           
+                triggerRender(false);           
+            });
+
+            $(document).on('click', '#clearLogoBtn', function() {
+                logoImageObjs = [];
+                renderLogoPreviews();
+                triggerRender(false);
+            });
+
+            $('.mode-btn').on('click', function() {
+                $('.mode-btn').removeClass('bg-white shadow-sm text-blue-600').addClass('text-slate-500 hover:text-slate-700');
+                $(this).removeClass('text-slate-500 hover:text-slate-700').addClass('bg-white shadow-sm text-blue-600');
+                
+                if(this.id === 'btnModeText') {
+                    $('#wmMode').val('text');
+                    $('#textSettings').removeClass('hidden-mode');
+                    $('#logoSettings').addClass('hidden-mode');
+                } else {
+                    $('#wmMode').val('logo');
+                    $('#textSettings').addClass('hidden-mode');
+                    $('#logoSettings').removeClass('hidden-mode');
+                }
+                triggerRender(false);
+            });
+
+            $('#addOutline').on('change', function() {
+                if(this.checked) $('#outlineControls').removeClass('opacity-50 pointer-events-none');
+                else $('#outlineControls').addClass('opacity-50 pointer-events-none');
+            });
+
+            $('#positionSelect').on('change', function() {
+                if($(this).val() === 'tile') $('#spacingContainer').show();
+                else $('#spacingContainer').hide();
+            });
+
+            // ================= File Handlers =================
+            const dropZone = $('#dropZone');
+            const fileInput = $('#imageInput');
+
+            dropZone.on('dragover', function(e) { e.preventDefault(); e.stopPropagation(); $(this).addClass('bg-blue-100 border-blue-400'); });
+            dropZone.on('dragleave', function(e) { e.preventDefault(); e.stopPropagation(); $(this).removeClass('bg-blue-100 border-blue-400'); });
+            dropZone.on('drop', function(e) {
+                e.preventDefault(); e.stopPropagation();
+                $(this).removeClass('bg-blue-100 border-blue-400');
+                if(e.originalEvent.dataTransfer.files.length > 0) {
+                    fileInput.files = e.originalEvent.dataTransfer.files;
+                    fileInput.trigger('change');
+                }
+            });
+
+            $('#imageInput').on('change', function(e) {
+                selectedFiles = Array.from(e.target.files);
+                updateDynamicTexts();
+                triggerRender(true);
+            });
+
+            $('#logoInput').on('change', async function(e) {
+                logoImageObjs = []; 
+                const files = Array.from(e.target.files);
+                
+                if(files.length > 0) {
+                    $('#previewPanel').addClass('is-loading'); 
+                    for(let file of files) {
+                        await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = function(event) {
+                                const img = new Image();
+                                img.onload = function() { logoImageObjs.push(img); resolve(); };
+                                img.src = event.target.result;
+                            };
+                            reader.readAsDataURL(file);
+                        });
+                    }
+                    $('#logoInput').val('');
+                    renderLogoPreviews();
+                    triggerRender(false);
+                }
+            });
+
+            $('.text-trigger').on('input', function() { clearTimeout(renderTimeout); renderTimeout = setTimeout(() => triggerRender(false), 500); });
+            $('.slide-trigger, .select-trigger').on('change', function() { triggerRender(false); });
+
+            // ================= Zoom Modal =================
+            function updateZoomDisplay() {
+                $('#modalImage').css('transform', `scale(${currentZoom})`);
+                $('#zoomLevel').text(`${Math.round(currentZoom * 100)}%`);
+            }
+
+            $(document).on('click', '.view-large', function() {
+                $('#modalImage').attr('src', $(this).attr('data-src'));
+                currentZoom = 1; 
+                updateZoomDisplay();
+                $('#imageModal').removeClass('hidden').addClass('modal-active');
+            });
+
+            $('#zoomInBtn').on('click', function() { currentZoom += 0.25; if(currentZoom > 4) currentZoom = 4; updateZoomDisplay(); });
+            $('#zoomOutBtn').on('click', function() { currentZoom -= 0.25; if(currentZoom < 0.25) currentZoom = 0.25; updateZoomDisplay(); });
+            $('#zoomResetBtn').on('click', function() { currentZoom = 1; updateZoomDisplay(); });
+
+            $('#imageModal').on('click', function(e) {
+                if(e.target.id === 'imageModal' || e.target.id === 'modalImageWrapper') $('#imageModal').addClass('hidden').removeClass('modal-active');
+            });
+            $('#closeModal').on('click', function() { $('#imageModal').addClass('hidden').removeClass('modal-active'); });
+
+            // ================= Rendering Engine =================
+            function triggerRender(isNewUpload) {
+                $('#previewPanel').addClass('is-loading'); 
+                setTimeout(async () => { 
+                    await renderWatermarks(); 
+                    if (isNewUpload && window.innerWidth < 768 && selectedFiles.length > 0) {
+                        document.getElementById('previewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 50); 
+            }
+
+            async function renderWatermarks() {
+                const mode = $('#wmMode').val();
+                const logoMultipleMode = $('#logoMultipleMode').val();
+                const previewContainer = $('#previewContainer');
+                
+                if (selectedFiles.length === 0) {
+                    $('#previewPanel').removeClass('is-loading');
+                    $('#previewWarning').addClass('hidden');
+                    previewContainer.html(`
+                        <div class="col-span-full flex flex-col items-center justify-center py-20 md:py-32 text-slate-400 text-center">
+                            <div class="bg-slate-50 rounded-full p-6 mb-4 border border-slate-100 shadow-inner">
+                                <svg class="w-12 h-12 md:w-16 md:h-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            </div>
+                            <p class="font-bold text-slate-500 text-sm md:text-base">${t('err_no_img_title')}</p>
+                            <p class="text-xs mt-1 text-slate-400">${t('err_no_img_desc')}</p>
+                        </div>
+                    `);
+                    updateDynamicTexts();
+                    $('#downloadAllBtn, #downloadZipBtn').addClass('hidden');
+                    return;
+                }
+
+                if (mode === 'logo' && logoImageObjs.length === 0) $('#previewWarning').removeClass('hidden');
+                else $('#previewWarning').addClass('hidden');
+
+                const text = $('#watermarkText').val() || 'Watermark';
+                const fontSize = parseInt($('#fontSize').val());
+                const fontColor = $('#fontColor').val();
+                const fontFamily = $('#fontFamily').val();
+                const addOutline = $('#addOutline').is(':checked');
+                const outlineColor = $('#outlineColor').val();
+                const outlineWidth = parseInt($('#outlineWidth').val());
+                
+                const logoScalePerc = parseInt($('#logoScale').val()) / 100;
+                const opacity = parseFloat($('#opacity').val());
+                const spacingValue = parseFloat($('#spacing').val());
+                const rotation = parseFloat($('#rotationAngle').val()) * Math.PI / 180; 
+                const position = $('#positionSelect').val();
+                
+                const format = $('#formatSelect').val();
+                const quality = parseFloat($('#imageQuality').val());
+                const extMap = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+                const extension = extMap[format] || 'jpg';
+
+                previewContainer.empty();
+                processedImagesData = []; 
+                
+                updateDynamicTexts();
+                $('#downloadAllBtn').removeClass('hidden');
+                if (selectedFiles.length >= 2) $('#downloadZipBtn').removeClass('hidden');
+                else $('#downloadZipBtn').addClass('hidden');
+
+                for (let i = 0; i < selectedFiles.length; i++) {
+                    const file = selectedFiles[i];
+                    const originalName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+                    const finalFileName = `${originalName}_wm.${extension}`;
+                    
+                    await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            const img = new Image();
+                            img.onload = function() {
+                                const canvas = document.createElement('canvas');
+                                const ctx = canvas.getContext('2d');
+                                canvas.width = img.width;
+                                canvas.height = img.height;
+
+                                ctx.drawImage(img, 0, 0);
+                                ctx.globalAlpha = opacity;
+
+                                let contentWidth = 0; let contentHeight = 0;
+                                if(mode === 'text') {
+                                    contentWidth = fontSize * 3; 
+                                    contentHeight = (text.split('\n').length * fontSize * 1.2) / 2;
+                                } else if (mode === 'logo' && logoImageObjs.length > 0) {
+                                    if (logoImageObjs.length === 1 || logoMultipleMode === 'alternate') {
+                                        const currentLogo = logoImageObjs[i % logoImageObjs.length];
+                                        const targetWidth = canvas.width * logoScalePerc;
+                                        const ratio = targetWidth / currentLogo.width;
+                                        contentWidth = targetWidth / 2;
+                                        contentHeight = (currentLogo.height * ratio) / 2;
+                                    } else if (logoMultipleMode === 'mixed_tile') {
+                                        let maxW = 0, maxH = 0;
+                                        logoImageObjs.forEach(logo => {
+                                            const targetW = canvas.width * logoScalePerc;
+                                            const targetH = logo.height * (targetW / logo.width);
+                                            if (targetW > maxW) maxW = targetW;
+                                            if (targetH > maxH) maxH = targetH;
+                                        });
+                                        contentWidth = maxW / 2;
+                                        contentHeight = maxH / 2;
+                                    } else {
+                                        const gap = canvas.width * 0.02;
+                                        let totalWidth = -gap;
+                                        let maxHeight = 0;
+                                        logoImageObjs.forEach(logo => {
+                                            const targetWidth = canvas.width * logoScalePerc;
+                                            const ratio = targetWidth / logo.width;
+                                            const targetHeight = logo.height * ratio;
+                                            totalWidth += targetWidth + gap;
+                                            if (targetHeight > maxHeight) maxHeight = targetHeight;
+                                        });
+                                        contentWidth = totalWidth / 2;
+                                        contentHeight = maxHeight / 2;
+                                    }
+                                }
+
+                                const drawWatermarkElement = (x, y, overrideLogo = null) => {
+                                    ctx.save();
+                                    ctx.translate(x, y);
+                                    ctx.rotate(rotation);
+
+                                    if (mode === 'text') {
+                                        ctx.font = `600 ${fontSize}px '${fontFamily}', sans-serif`;
+                                        ctx.fillStyle = fontColor;
+                                        ctx.textAlign = 'center';
+                                        ctx.textBaseline = 'middle';
+                                        
+                                        const lines = text.split('\n');
+                                        const lineHeight = fontSize * 1.2;
+                                        const startYText = -((lines.length - 1) * lineHeight) / 2;
+                                        
+                                        lines.forEach((line, index) => {
+                                            const yOffset = startYText + (index * lineHeight);
+                                            if (addOutline) {
+                                                ctx.strokeStyle = outlineColor;
+                                                ctx.lineWidth = outlineWidth;
+                                                ctx.lineJoin = "round"; 
+                                                ctx.strokeText(line, 0, yOffset);
+                                            }
+                                            ctx.fillText(line, 0, yOffset);
+                                        });
+
+                                    } else if (mode === 'logo' && logoImageObjs.length > 0) {
+                                        if (overrideLogo) {
+                                            const targetWidth = canvas.width * logoScalePerc;
+                                            const targetHeight = overrideLogo.height * (targetWidth / overrideLogo.width);
+                                            ctx.drawImage(overrideLogo, -targetWidth/2, -targetHeight/2, targetWidth, targetHeight);
+                                        } else if (logoImageObjs.length === 1 || logoMultipleMode === 'alternate' || logoMultipleMode === 'mixed_tile') {
+                                            const currentLogo = logoMultipleMode === 'mixed_tile' ? logoImageObjs : logoImageObjs[i % logoImageObjs.length];
+                                            const targetWidth = canvas.width * logoScalePerc;
+                                            const ratio = targetWidth / currentLogo.width;
+                                            const targetHeight = currentLogo.height * ratio;
+                                            ctx.drawImage(currentLogo, -targetWidth/2, -targetHeight/2, targetWidth, targetHeight);
+                                        } else {
+                                            const gap = canvas.width * 0.02;
+                                            let totalWidth = -gap;
+                                            const logoData = logoImageObjs.map(logo => {
+                                                const targetWidth = canvas.width * logoScalePerc;
+                                                const ratio = targetWidth / logo.width;
+                                                const targetHeight = logo.height * ratio;
+                                                totalWidth += targetWidth + gap;
+                                                return { logo, width: targetWidth, height: targetHeight };
+                                            });
+                                            
+                                            let currentX = -totalWidth / 2;
+                                            logoData.forEach(item => {
+                                                ctx.drawImage(item.logo, currentX, -item.height/2, item.width, item.height);
+                                                currentX += item.width + gap;
+                                            });
+                                        }
+                                    }
+                                    ctx.restore();
+                                };
+
+                                if (mode === 'text' || (mode === 'logo' && logoImageObjs.length > 0)) {
+                                    if (position === 'tile') {
+                                        let stepX, stepY;
+                                        if(mode === 'text') {
+                                            stepX = (fontSize * 4) * spacingValue; 
+                                            stepY = (fontSize * 2) * spacingValue; 
+                                        } else {
+                                            stepX = contentWidth * 2 * spacingValue;
+                                            if(stepX === 0) stepX = 100;
+                                            stepY = contentHeight * 2 * 0.8 * spacingValue;
+                                        }
+                                        
+                                        let rowNum = 0;
+                                        let logoCounter = 0;
+                                        for (let y = -canvas.height; y < canvas.height * 2; y += stepY) {
+                                            let offsetX = (rowNum % 2 === 0) ? 0 : stepX / 2;
+                                            for (let x = -canvas.width; x < canvas.width * 2; x += stepX) {
+                                                if (mode === 'logo' && logoMultipleMode === 'mixed_tile') {
+                                                    const specificLogo = logoImageObjs[logoCounter % logoImageObjs.length];
+                                                    drawWatermarkElement(x + offsetX, y, specificLogo);
+                                                    logoCounter++;
+                                                } else {
+                                                    drawWatermarkElement(x + offsetX, y);
+                                                }
+                                            }
+                                            if (mode === 'logo' && logoMultipleMode === 'mixed_tile' && logoImageObjs.length % 2 === 0) {
+                                                logoCounter++; 
+                                            }
+                                            rowNum++;
+                                        }
+                                    } else {
+                                        let x = canvas.width / 2;
+                                        let y = canvas.height / 2;
+                                        const padding = 40;
+
+                                        if (position.includes('left')) x = padding + contentWidth;
+                                        if (position.includes('right')) x = canvas.width - padding - contentWidth;
+                                        if (position.includes('top')) y = padding + contentHeight;
+                                        if (position.includes('bottom')) y = canvas.height - padding - contentHeight;
+
+                                        drawWatermarkElement(x, y);
+                                    }
+                                }
+
+                                const dataUrl = canvas.toDataURL(format, (format==='image/png') ? undefined : quality);
+                                
+                                processedImagesData.push({
+                                    filename: finalFileName,
+                                    base64Data: dataUrl.split(',') 
+                                });
+
+                                const cardHtml = `
+                                    <div class="border border-slate-200 rounded-xl overflow-hidden bg-white flex flex-col group shadow-sm hover:shadow-md transition-all duration-200">
+                                        <div class="h-32 md:h-40 overflow-hidden bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYNgfQEhD/oMBQ4wMRg0gNg1ZBDXgP1g/jRoAh4ZhNDLwYyOIAWEzBQCv+hwK47e5cAAAAABJRU5ErkJggg==')] flex items-center justify-center relative cursor-pointer preview-img-container view-large" data-src="${dataUrl}" title="${t('zoom_in')}">
+                                            <img src="${dataUrl}" class="max-h-full max-w-full object-contain">
+                                            <div class="zoom-icon opacity-0 absolute inset-0 bg-slate-900/30 flex items-center justify-center transition-opacity duration-200 backdrop-blur-[1px]">
+                                                <div class="bg-white/90 p-2.5 rounded-full shadow-lg">
+                                                    <svg class="w-5 h-5 text-slate-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="p-2.5 md:p-3 bg-slate-50 mt-auto border-t border-slate-100 flex flex-col gap-2">
+                                            <p class="text-[10px] md:text-[11px] text-slate-600 truncate font-semibold" title="${file.name}">${file.name}</p>
+                                            <a href="${dataUrl}" download="${finalFileName}" onclick="event.stopPropagation();" class="single-download w-full bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-bold py-2 md:py-1.5 px-3 rounded-lg transition-colors flex flex-row justify-center items-center gap-1.5 shadow-sm outline-none whitespace-nowrap">
+                                                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                                <span>${t('btn_dl_this')}</span>
+                                            </a>
+                                        </div>
+                                    </div>
+                                `;
+                                previewContainer.append(cardHtml);
+                                resolve();
+                            };
+                            img.src = event.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                }
+                
+                $('#previewPanel').removeClass('is-loading'); 
+            }
+
+            $(document).on('click', '.single-download', function() {
+                showToast(t('toast_dl_started'), 'success');
+            });
+
+            $('#downloadAllBtn').on('click', function() {
+                showToast(t('toast_dl_single'), 'info');
+                $('.single-download').each(function(index, el) {
+                    setTimeout(() => { el.click(); }, index * 400);
+                });
+            });
+
+            $('#downloadZipBtn').on('click', function() {
+                if (processedImagesData.length === 0) return;
+                
+                const btn = $(this);
+                const originalHtml = btn.html();
+                btn.html(`<svg class="animate-spin h-4 w-4 shrink-0" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <span>${t('toast_packing')}</span>`).prop('disabled', true);
+                showToast(t('toast_packing'), 'info');
+
+                const zip = new JSZip();
+                
+                const date = new Date();
+                const dateString = `${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}_${date.getHours()}${date.getMinutes()}`;
+                const folderName = `Watermark_${dateString}`;
+                
+                const imgFolder = zip.folder(folderName);
+
+                processedImagesData.forEach(img => {
+                    imgFolder.file(img.filename, img.base64Data, {base64: true});
+                });
+
+                zip.generateAsync({type:"blob"}).then(function(content) {
+                    const a = document.createElement("a");
+                    const url = URL.createObjectURL(content);
+                    a.href = url;
+                    a.download = `${folderName}.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(function() {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                        btn.html(originalHtml).prop('disabled', false);
+                        showToast(t('toast_zip_success'), 'success');
+                    }, 0);
+                });
+            });
+
+        });
+    </script>
+</body>
+</html>
